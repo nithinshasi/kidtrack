@@ -1,0 +1,121 @@
+name: KidTrack CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  AZURE_WEBAPP_NAME: kidtrack-api
+  DOTNET_VERSION: '8.0.x'
+  NODE_VERSION: '20.x'
+
+jobs:
+  # ─── Backend Build & Test ───────────────────────────────
+  backend:
+    name: Build & Test API
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: KidTrack.API
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore -c Release
+
+      - name: Publish
+        run: dotnet publish -c Release -o ${{ github.workspace }}/publish
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-artifact
+          path: ${{ github.workspace }}/publish
+
+  # ─── Admin Portal Build ─────────────────────────────────
+  admin-portal:
+    name: Build Admin Portal
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: admin-portal
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: admin-portal/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-portal-artifact
+          path: admin-portal/dist
+
+  # ─── Deploy (main branch only) ─────────────────────────
+  deploy-api:
+    name: Deploy API to Azure
+    runs-on: ubuntu-latest
+    needs: backend
+    if: github.ref == 'refs/heads/main'
+    environment: production
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: api-artifact
+          path: publish
+
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: publish
+
+  deploy-portal:
+    name: Deploy Admin Portal to Azure Static Web Apps
+    runs-on: ubuntu-latest
+    needs: admin-portal
+    if: github.ref == 'refs/heads/main'
+    environment: production
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: admin-portal-artifact
+          path: dist
+
+      - name: Deploy to Azure Static Web Apps
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_TOKEN }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: upload
+          app_location: dist
+          skip_app_build: true
