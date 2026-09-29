@@ -1,4 +1,4 @@
-name: KidTrack - Build, Test & Deploy
+name: KidTrack - Deploy Admin Portal to GitHub Pages
 
 on:
   push:
@@ -6,7 +6,6 @@ on:
   pull_request:
     branches: [main]
 
-# Allow GitHub Pages deployment
 permissions:
   contents: read
   pages: write
@@ -15,92 +14,49 @@ permissions:
 jobs:
 
   # ─────────────────────────────────────────
-  # 1. BUILD BACKEND API
+  # BUILD ADMIN PORTAL
   # ─────────────────────────────────────────
-  backend:
-    name: 🔧 Backend API (.NET 8)
+  build:
+    name: 🌐 Build Admin Portal
     runs-on: ubuntu-latest
 
     steps:
-      - name: ⬇️ Checkout code
+      - name: ⬇️ Checkout
         uses: actions/checkout@v4
 
-      - name: ⚙️ Setup .NET 8
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '8.0.x'
-
-      - name: 📦 Restore packages
-        run: dotnet restore KidTrack.API/KidTrack.API.csproj
-
-      - name: 🔨 Build
-        run: dotnet build KidTrack.API/KidTrack.API.csproj --no-restore -c Release
-
-      - name: 📤 Publish
-        run: dotnet publish KidTrack.API/KidTrack.API.csproj -c Release -o ./api-publish
-
-      - name: ✅ Build Summary
-        run: |
-          echo "============================================"
-          echo "  ✅ KidTrack Backend API - BUILD PASSED"
-          echo "  .NET Version : $(dotnet --version)"
-          echo "============================================"
-
-      - name: ⬆️ Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: kidtrack-api
-          path: ./api-publish
-
-  # ─────────────────────────────────────────
-  # 2. BUILD ADMIN PORTAL + DEPLOY TO PAGES
-  # ─────────────────────────────────────────
-  admin-portal:
-    name: 🌐 Admin Portal → GitHub Pages
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: ⬇️ Checkout code
-        uses: actions/checkout@v4
-
-      - name: ⚙️ Setup Node.js 20
+      - name: ⚙️ Setup Node 20
         uses: actions/setup-node@v4
         with:
-          node-version: '20.x'
+          node-version: '20'
 
-      - name: 📦 Install dependencies
+      - name: 📦 Install
         run: npm install
         working-directory: admin-portal
 
-      - name: 🔨 Build portal
+      - name: 🔨 Build
         run: npm run build
         working-directory: admin-portal
-        env:
-          VITE_API_URL: https://kidtrack-api.azurewebsites.net/api
 
-      - name: ✅ Build Summary
+      - name: ✅ Done
         run: |
-          echo "============================================"
-          echo "  ✅ KidTrack Admin Portal - BUILD PASSED"
-          echo "  Output : admin-portal/dist"
-          echo "============================================"
+          echo "Build complete!"
           ls admin-portal/dist
 
       - name: ⚙️ Setup Pages
         uses: actions/configure-pages@v4
 
-      - name: ⬆️ Upload to GitHub Pages
+      - name: ⬆️ Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: admin-portal/dist
 
   # ─────────────────────────────────────────
-  # 3. DEPLOY TO GITHUB PAGES
+  # DEPLOY TO GITHUB PAGES
   # ─────────────────────────────────────────
-  deploy-pages:
+  deploy:
     name: 🚀 Deploy to GitHub Pages
     runs-on: ubuntu-latest
-    needs: admin-portal
+    needs: build
     if: github.ref == 'refs/heads/main'
     environment:
       name: github-pages
@@ -111,87 +67,9 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
 
-      - name: ✅ Live URL
+      - name: ✅ Live
         run: |
           echo "============================================"
-          echo "  🌐 KidTrack Admin Portal is LIVE!"
-          echo "  URL: https://nithinshasi.github.io/kidtrack"
+          echo "  🎉 KidTrack Admin Portal is LIVE!"
+          echo "  🌐 https://nithinshasi.github.io/kidtrack/"
           echo "============================================"
-
-  # ─────────────────────────────────────────
-  # 4. VALIDATE PARENT APP
-  # ─────────────────────────────────────────
-  parent-app:
-    name: 📱 Parent App (React Native)
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: ⬇️ Checkout code
-        uses: actions/checkout@v4
-
-      - name: ⚙️ Setup Node.js 20
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20.x'
-
-      - name: 📦 Install dependencies
-        run: npm install --legacy-peer-deps
-        working-directory: parent-app
-
-      - name: ✅ Ready
-        run: |
-          echo "  ✅ KidTrack Parent App - READY"
-          echo "  Run locally: cd parent-app && npx expo start"
-
-  # ─────────────────────────────────────────
-  # 5. VALIDATE DRIVER APP
-  # ─────────────────────────────────────────
-  driver-app:
-    name: 🚌 Driver App (React Native)
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: ⬇️ Checkout code
-        uses: actions/checkout@v4
-
-      - name: ⚙️ Setup Node.js 20
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20.x'
-
-      - name: 📦 Install dependencies
-        run: npm install --legacy-peer-deps
-        working-directory: driver-app
-
-      - name: ✅ Ready
-        run: |
-          echo "  ✅ KidTrack Driver App - READY"
-          echo "  Run locally: cd driver-app && npx expo start"
-
-  # ─────────────────────────────────────────
-  # 6. FINAL SUMMARY
-  # ─────────────────────────────────────────
-  summary:
-    name: 📊 KidTrack Build Summary
-    runs-on: ubuntu-latest
-    needs: [backend, admin-portal, parent-app, driver-app]
-    if: always()
-
-    steps:
-      - name: 🎉 Final Report
-        run: |
-          echo ""
-          echo "╔═══════════════════════════════════════════════════╗"
-          echo "║         KidTrack MVP - BUILD COMPLETE ✅           ║"
-          echo "╠═══════════════════════════════════════════════════╣"
-          echo "║  🔧  Backend API (.NET 8)    → BUILD PASSED       ║"
-          echo "║  🌐  Admin Portal (React)    → LIVE ON PAGES      ║"
-          echo "║  📱  Parent App (RN/Expo)    → READY              ║"
-          echo "║  🚌  Driver App (RN/Expo)    → READY              ║"
-          echo "╠═══════════════════════════════════════════════════╣"
-          echo "║  🌐 Live URL:                                      ║"
-          echo "║  https://nithinshasi.github.io/kidtrack            ║"
-          echo "╠═══════════════════════════════════════════════════╣"
-          echo "║  Founder : Sasiprakash                             ║"
-          echo "║  Repo    : github.com/nithinshasi/kidtrack         ║"
-          echo "╚═══════════════════════════════════════════════════╝"
