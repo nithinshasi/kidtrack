@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using KidTrack.API.Models;
+using RouteModel = KidTrack.API.Models.Route;
 
 namespace KidTrack.API.Data;
 
@@ -12,7 +13,7 @@ public class KidTrackDbContext : DbContext
     public DbSet<Parent> Parents => Set<Parent>();
     public DbSet<Bus> Buses => Set<Bus>();
     public DbSet<Driver> Drivers => Set<Driver>();
-    public DbSet<Models.Route> Routes => Set<Models.Route>();
+    public DbSet<RouteModel> Routes => Set<RouteModel>();
     public DbSet<Attendance> Attendances => Set<Attendance>();
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<TripHistory> TripHistories => Set<TripHistory>();
@@ -35,7 +36,7 @@ public class KidTrackDbContext : DbContext
             .OnDelete(DeleteBehavior.SetNull);
 
         // Route-Bus
-        modelBuilder.Entity<Models.Route>()
+        modelBuilder.Entity<RouteModel>()
             .HasOne(r => r.Bus)
             .WithMany()
             .HasForeignKey(r => r.BusId)

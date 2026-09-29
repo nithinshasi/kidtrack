@@ -3,6 +3,7 @@ using KidTrack.API.DTOs;
 using KidTrack.API.Models;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
+using RouteModel = KidTrack.API.Models.Route;
 
 namespace KidTrack.API.Services;
 
@@ -29,7 +30,6 @@ public class TripService : ITripService
 
     public async Task<TripDto?> StartTripAsync(StartTripRequest request)
     {
-        // Check no active trip for same bus
         var existing = await _db.TripHistories
             .FirstOrDefaultAsync(t => t.BusId == request.BusId && t.Status == "InProgress");
         if (existing != null) return null;
@@ -49,13 +49,11 @@ public class TripService : ITripService
 
         _db.TripHistories.Add(trip);
 
-        // Update driver status
         var driver = await _db.Drivers.FindAsync(request.DriverId);
         if (driver != null) driver.Status = "OnTrip";
 
         await _db.SaveChangesAsync();
 
-        // Update bus location
         var bus = await _db.Buses.FindAsync(request.BusId);
         if (bus != null)
         {
@@ -118,7 +116,6 @@ public class TripService : ITripService
         bus.CurrentLongitude = request.Longitude;
         bus.LastLocationUpdate = DateTime.UtcNow;
 
-        // Store GPS point in active trip
         var trip = await _db.TripHistories
             .FirstOrDefaultAsync(t => t.BusId == request.BusId && t.Status == "InProgress");
 
@@ -130,7 +127,6 @@ public class TripService : ITripService
 
             points.Add(new { lat = request.Latitude, lng = request.Longitude, ts = DateTime.UtcNow });
 
-            // Keep last 500 points to avoid bloat
             if (points.Count > 500) points = points.TakeLast(500).ToList();
             trip.TrackingPointsJson = JsonSerializer.Serialize(points);
         }

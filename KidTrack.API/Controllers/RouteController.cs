@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using KidTrack.API.Data;
 using KidTrack.API.DTOs;
-using KidTrack.API.Models;
+using RouteModel = KidTrack.API.Models.Route;
 
 namespace KidTrack.API.Controllers;
 
@@ -43,7 +43,7 @@ public class RouteController : ControllerBase
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Create([FromBody] CreateRouteRequest request)
     {
-        var route = new Route
+        var route = new RouteModel
         {
             Name = request.Name,
             Description = request.Description,

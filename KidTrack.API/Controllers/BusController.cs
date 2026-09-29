@@ -1,6 +1,9 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using KidTrack.API.Data;
 using KidTrack.API.DTOs;
+using KidTrack.API.Models;
 using KidTrack.API.Services;
 
 namespace KidTrack.API.Controllers;
@@ -11,9 +14,9 @@ namespace KidTrack.API.Controllers;
 public class BusController : ControllerBase
 {
     private readonly ITripService _tripService;
-    private readonly Microsoft.EntityFrameworkCore.DbContext _db;
+    private readonly KidTrackDbContext _db;
 
-    public BusController(ITripService tripService, Data.KidTrackDbContext db)
+    public BusController(ITripService tripService, KidTrackDbContext db)
     {
         _tripService = tripService;
         _db = db;
@@ -36,14 +39,14 @@ public class BusController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetBuses([FromQuery] int? schoolId)
     {
-        var ctx = (Data.KidTrackDbContext)_db;
-        var query = ctx.Buses.Where(b => b.IsActive);
+        var query = _db.Buses.Where(b => b.IsActive);
         if (schoolId.HasValue) query = query.Where(b => b.SchoolId == schoolId);
 
-        var buses = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions
-            .ToListAsync(query.Select(b => new BusDto(b.Id, b.RegistrationNumber, b.Model,
-                b.Capacity, b.Status, b.SchoolId, b.DriverId,
-                b.CurrentLatitude, b.CurrentLongitude, b.LastLocationUpdate, b.IsActive)));
+        var buses = await query.Select(b => new BusDto(
+            b.Id, b.RegistrationNumber, b.Model,
+            b.Capacity, b.Status, b.SchoolId, b.DriverId,
+            b.CurrentLatitude, b.CurrentLongitude, b.LastLocationUpdate, b.IsActive))
+            .ToListAsync();
         return Ok(buses);
     }
 
@@ -51,16 +54,15 @@ public class BusController : ControllerBase
     [Authorize(Roles = "Admin")]
     public async Task<IActionResult> CreateBus([FromBody] CreateBusRequest request)
     {
-        var ctx = (Data.KidTrackDbContext)_db;
-        var bus = new Models.Bus
+        var bus = new Bus
         {
             RegistrationNumber = request.RegistrationNumber,
             Model = request.Model,
             Capacity = request.Capacity,
             SchoolId = request.SchoolId
         };
-        ctx.Buses.Add(bus);
-        await ctx.SaveChangesAsync();
+        _db.Buses.Add(bus);
+        await _db.SaveChangesAsync();
         return Ok(new BusDto(bus.Id, bus.RegistrationNumber, bus.Model, bus.Capacity, bus.Status,
             bus.SchoolId, bus.DriverId, bus.CurrentLatitude, bus.CurrentLongitude,
             bus.LastLocationUpdate, bus.IsActive));
